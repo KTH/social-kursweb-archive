@@ -3,90 +3,111 @@
                 xsi:schemaLocation="Schema_social Schema%20_social.xsd">
     <SystemNamn>Social</SystemNamn>
     <Kurs>
-         <!-- Exempel 1 (kurs med en flat struktur motsvarar det ursprungliga exemplet) -->
+        <!-- Exempel 1 (kurs med en flat struktur motsvarar det ursprungliga exemplet) -->
         <Kurskod>DM1580</Kurskod>
-        <Kursnamn>Videoteknik</Kursnamn>
-        <Innehåll>
-            <Nod Lank="lank/till/DM1580.html" Filnamn="DM1580.html" Storlek="123456" Skapad="2011-12-24T00:00:00" Ändrad="2011-12-31T00:00:00"/>
-            <Bilaga Filnamn="Lec1_20Introduction_20.pdf" Lank="d/DM1580/58caee54f276543d942c0696/Lec1_20Introduction_20.pdf" Handlingstyp="" Storlek="20772800" Uppladdningsdatum="2018-01-02T00:00:00"/>
-            <Bilaga Filnamn="MATLAB-tutorial.pdf" Lank="d/DM1580/58dba6fbf2765445f60f3258/MATLAB-tutorial.pdf" Handlingstyp="" Storlek="12094552" Uppladdningsdatum="2018-01-02T00:00:00"/>
-        </Innehåll>
+        <Kursnamn Lang="sv">Videoteknik</Kursnamn>
+        <Innehall>
+            <Nod Lank="lank/till/DM1580.html" Filnamn="DM1580.html" Storlek="123456" Skapad="2011-12-24T00:00:00"
+                 Andrad="2011-12-31T00:00:00"/>
+            <Bilaga Filnamn="Lec1_20Introduction_20.pdf"
+                    Lank="d/DM1580/58caee54f276543d942c0696/Lec1_20Introduction_20.pdf" Handlingstyp=""
+                    Storlek="20772800" Uppladdningsdatum="2018-01-02T00:00:00"/>
+            <Bilaga Filnamn="MATLAB-tutorial.pdf" Lank="d/DM1580/58dba6fbf2765445f60f3258/MATLAB-tutorial.pdf"
+                    Handlingstyp="" Storlek="12094552" Uppladdningsdatum="2018-01-02T00:00:00"/>
+        </Innehall>
     </Kurs>
     <Kurs>
-         <!-- Exempel 2 (Samma som exempel 1 men med två kurstillfällen) -->
+        <!-- Exempel 2 (Samma som exempel 1 men med två kurstillfallen) -->
         <Kurskod>DM1580</Kurskod>
-        <Kursnamn>Videoteknik</Kursnamn>
-        <Innehåll>
-            <Nod Lank="lank/till/DM1580.html" Filnamn="DM1580.html" Storlek="123456" Skapad="2011-12-24T00:00:00" Ändrad="2011-12-31T00:00:00"/>
-            <Bilaga Filnamn="Lec1_20Introduction_20.pdf" Lank="d/DM1580/58caee54f276543d942c0696/Lec1_20Introduction_20.pdf" Handlingstyp="" Storlek="20772800" Uppladdningsdatum="2018-01-02T00:00:00"/>
-            <Bilaga Filnamn="MATLAB-tutorial.pdf" Lank="d/DM1580/58dba6fbf2765445f60f3258/MATLAB-tutorial.pdf" Handlingstyp="" Storlek="12094552" Uppladdningsdatum="2018-01-02T00:00:00"/>
-        </Innehåll>
-        <Kurstillfälle>
-            <Kurstillfälleskod>DM1580-VT11</Kurstillfälleskod>
-            <Innehåll>
-                <Nod Lank="lank/till/kurstilfalle1.html" Filnamn="kurstilfalle1.html" Storlek="123456" Skapad="2011-12-24T00:00:00" Ändrad="2011-12-31T00:00:00"/>
-                <Bilaga Filnamn="Lec1_20VT11Introduction_20.pdf" Lank="d/DM1580/58caee54f276543d942c0696/Lec1_20VT11Introduction_20.pdf" Handlingstyp="" Storlek="20772800"/>
-            </Innehåll>
-        </Kurstillfälle>
-        <Kurstillfälle>
-            <Kurstillfälleskod>DM1580-VT12</Kurstillfälleskod>
-            <Omgång>VT12</Omgång>
-            <Innehåll>
-                <Nod Lank="lank/till/kurstilfalle2.html" Filnamn="kurstilfalle2.html" Storlek="123456" Skapad="2011-12-24T00:00:00" Ändrad="2011-12-31T00:00:00"/>
-                <Bilaga Filnamn="Lec1_20VT12Introduction_20.pdf" Lank="d/DM1580/58caee54f276543d942c0696/Lec1_20VT12Introduction_20.pdf" Handlingstyp="" Storlek="20772800"/>
-            </Innehåll>
-        </Kurstillfälle>
+        <Kursnamn Lang="sv">Videoteknik</Kursnamn>
+        <Innehall>
+            <Nod Lank="lank/till/DM1580.html" Filnamn="DM1580.html" Storlek="123456" Skapad="2011-12-24T00:00:00"
+                 Andrad="2011-12-31T00:00:00"/>
+            <Bilaga Filnamn="Lec1_20Introduction_20.pdf"
+                    Lank="d/DM1580/58caee54f276543d942c0696/Lec1_20Introduction_20.pdf" Handlingstyp=""
+                    Storlek="20772800" Uppladdningsdatum="2018-01-02T00:00:00"/>
+            <Bilaga Filnamn="MATLAB-tutorial.pdf" Lank="d/DM1580/58dba6fbf2765445f60f3258/MATLAB-tutorial.pdf"
+                    Handlingstyp="" Storlek="12094552" Uppladdningsdatum="2018-01-02T00:00:00"/>
+        </Innehall>
+        <Kurstillfalle>
+            <Kurstillfalleskod>DM1580-VT11</Kurstillfalleskod>
+            <Innehall>
+                <Nod Lank="lank/till/kurstilfalle1.html" Filnamn="kurstilfalle1.html" Storlek="123456"
+                     Skapad="2011-12-24T00:00:00" Andrad="2011-12-31T00:00:00"/>
+                <Bilaga Filnamn="Lec1_20VT11Introduction_20.pdf"
+                        Lank="d/DM1580/58caee54f276543d942c0696/Lec1_20VT11Introduction_20.pdf" Handlingstyp=""
+                        Storlek="20772800"/>
+            </Innehall>
+        </Kurstillfalle>
+        <Kurstillfalle>
+            <Kurstillfalleskod>DM1580-VT12</Kurstillfalleskod>
+            <Omgang>VT12</Omgang>
+            <Innehall>
+                <Nod Lank="lank/till/kurstilfalle2.html" Filnamn="kurstilfalle2.html" Storlek="123456"
+                     Skapad="2011-12-24T00:00:00" Andrad="2011-12-31T00:00:00"/>
+                <Bilaga Filnamn="Lec1_20VT12Introduction_20.pdf"
+                        Lank="d/DM1580/58caee54f276543d942c0696/Lec1_20VT12Introduction_20.pdf" Handlingstyp=""
+                        Storlek="20772800"/>
+            </Innehall>
+        </Kurstillfalle>
     </Kurs>
     <Kurs>
         <!-- Exempel 3 (Nästlad struktur för att beskriva sidornas hierarki) -->
         <Kurskod>EK1191</Kurskod>
-        <Kursnamn>Measurement Technology / Mätteknik</Kursnamn>
-        <Kurstillfälle>
-            <Kurstillfälleskod>EK1191 HT17</Kurstillfälleskod>
-            <Omgång>HT17</Omgång>
-            <Innehåll>
-                <Nod Filnamn="huvudsida.html" Skapad="2018-01-01T00:00:00" Ändrad="2018-01-02T00:00:00">
-                    <Bilaga Filnamn="bilaga1.pdf" Lank="bilagor/bilaga1.pdf" Storlek="765432" Handlingstyp="Presenation"/>
-                    <Nod Filnamn="subsida.html" Skapad="2018-01-01T00:00:00" Ändrad="2018-01-02T00:00:00">
-                        <Bilaga Filnamn="bilaga2.pdf" Lank="bilagor/bilaga1.pdf" Storlek="1234567" Handlingstyp="Tentamina"/>
+        <Kursnamn Lang="sv">Matteknik</Kursnamn>
+        <Kursnamn Lang="en">Measurement Technology</Kursnamn>
+        <Kurstillfalle>
+            <Kurstillfalleskod>EK1191 HT17</Kurstillfalleskod>
+            <Omgang>HT17</Omgang>
+            <Innehall>
+                <Nod Filnamn="huvudsida.html" Skapad="2018-01-01T00:00:00" Andrad="2018-01-02T00:00:00">
+                    <Bilaga Filnamn="bilaga1.pdf" Lank="bilagor/bilaga1.pdf" Storlek="765432"
+                            Handlingstyp="Presenation"/>
+                    <Nod Filnamn="subsida.html" Skapad="2018-01-01T00:00:00" Andrad="2018-01-02T00:00:00">
+                        <Bilaga Filnamn="bilaga2.pdf" Lank="bilagor/bilaga1.pdf" Storlek="1234567"
+                                Handlingstyp="Tentamina"/>
                     </Nod>
                 </Nod>
-            </Innehåll>
-        </Kurstillfälle>
+            </Innehall>
+        </Kurstillfalle>
     </Kurs>
-        <Kurs>
+    <Kurs>
         <!-- Exempel 4 (Som exempel 3 men med html som CDATA) -->
         <Kurskod>EQ1110</Kurskod>
-        <Kursnamn>Continuous Time Signals and Systems / Tidskontinuerliga signaler och system</Kursnamn>
-        <Kurstillfälle>
-            <Kurstillfälleskod>EQ1110 HT18</Kurstillfälleskod>
-            <Omgång>HT18</Omgång>
-            <Innehåll>
-                <Nod Filnamn="huvudsida.html" Skapad="2018-01-01T00:00:00" Ändrad="2018-01-02T00:00:00">
-                    <text><![CDATA[<html><h1>Välkommen till kursen!</h1></html>]]></text>
-                    <Nod Filnamn="subsida.html" Skapad="2018-01-01T00:00:00" Ändrad="2018-01-02T00:00:00">
-                        <text><![CDATA[<html><h1>Delkurs 1- introduktion till system</h1></html>]]></text>
+        <Kursnamn Lang="en">Continuous Time Signals and Systems</Kursnamn>
+        <Kursnamn Lang="sv">Tidskontinuerliga signaler och system</Kursnamn>
+
+        <Kurstillfalle>
+            <Kurstillfalleskod>EQ1110 HT18</Kurstillfalleskod>
+            <Omgang>HT18</Omgang>
+            <Innehall>
+                <Nod Filnamn="huvudsida.html" Skapad="2018-01-01T00:00:00" Andrad="2018-01-02T00:00:00">
+                    <Text><![CDATA[<html><h1>Välkommen till kursen!</h1></html>]]></Text>
+                    <Nod Filnamn="subsida.html" Skapad="2018-01-01T00:00:00" Andrad="2018-01-02T00:00:00">
+                        <Text><![CDATA[<html><h1>Delkurs 1- introduktion till system</h1></html>]]></Text>
                     </Nod>
                 </Nod>
-            </Innehåll>
+            </Innehall>
 
-        </Kurstillfälle>
+        </Kurstillfalle>
     </Kurs>
-            <Kurs>
+    <Kurs>
         <!-- Exempel 5 (Som exempel 4 men enbart textdata  ) -->
         <Kurskod>EQ1110</Kurskod>
-        <Kursnamn>Continuous Time Signals and Systems / Tidskontinuerliga signaler och system</Kursnamn>
-        <Kurstillfälle>
-            <Kurstillfälleskod>EQ1110 HT18</Kurstillfälleskod>
-            <Omgång>HT18</Omgång>
-            <Innehåll>
+
+        <Kursnamn Lang="en">Continuous Time Signals and Systems</Kursnamn>
+        <Kursnamn Lang="sv">Tidskontinuerliga signaler och system</Kursnamn>
+        <Kurstillfalle>
+            <Kurstillfalleskod>EQ1110 HT18</Kurstillfalleskod>
+            <Omgang>HT18</Omgang>
+            <Innehall>
                 <Nod>
-                    <text>Startsida - Välkommen till kursen</text>
+                    <Text>Startsida - Välkommen till kursen</Text>
                     <Nod>
-                        <text>Delkurs 1- introduktion till system</text>
+                        <Text>Delkurs 1- introduktion till system</Text>
                     </Nod>
                 </Nod>
-            </Innehåll>
-        </Kurstillfälle>
+            </Innehall>
+        </Kurstillfalle>
     </Kurs>
 </Leveransobjekt>

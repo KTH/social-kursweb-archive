@@ -6,7 +6,9 @@
             Change history:
             Version Date Author Description
             0.1 2022???? Ulf Nilsson Utkast
-            0.2 20220617 Andreas Segerberg
+            0.2 20220617 Andreas Segerberg Nytt utkast
+            0.3 20220621 Andreas Segerberg Tagit bort svenska tecken, restriktion på filnamn samt rättat så elementet Text även har versal begynnelsebokstav
+            0.4 20220621 Andreas Segerberg Tillåt flera Kursnamn samt attribut för språkkod.
         </xs:documentation>
     </xs:annotation>
     <xs:complexType name="BilagaType">
@@ -36,15 +38,10 @@
             <xs:choice>
                 <xs:element name="Nod" type="nodType"/>
                 <xs:element type="BilagaType" name="Bilaga"/>
-                <xs:element name="text" type="xs:string"/>
+                <xs:element name="Text" type="xs:string"/>
             </xs:choice>
         </xs:sequence>
-        <xs:attribute name="Filnamn" use="optional">
-            <xs:simpleType>
-                <xs:restriction base="xs:string">
-                    <xs:pattern value="[a-zA-Z\d_\-]*.[a-zA-Z\d]*"/>
-                </xs:restriction>
-            </xs:simpleType>
+        <xs:attribute type="xs:string" name="Filnamn" use="optional">
         </xs:attribute>
         <xs:attribute name="Lank" use="optional">
             <xs:annotation>
@@ -58,9 +55,9 @@
         </xs:attribute>
         <xs:attribute type="xs:integer" name="Storlek" use="optional"/>
         <xs:attribute type="xs:dateTime" name="Skapad" use="optional"/>
-        <xs:attribute type="xs:dateTime" name="Ändrad" use="optional"/>
+        <xs:attribute type="xs:dateTime" name="Andrad" use="optional"/>
     </xs:complexType>
-    <xs:complexType name="InnehållType">
+    <xs:complexType name="InnehallType">
         <xs:sequence minOccurs="0" maxOccurs="unbounded">
             <xs:choice>
                 <xs:element type="nodType" name="Nod"/>
@@ -91,25 +88,30 @@
                                     </xs:restriction>
                                 </xs:simpleType>
                             </xs:element>
-                            <xs:element name="Kursnamn">
-                                <xs:annotation>
-                                    <xs:documentation xml:lang="se">hämtas från källmetadata "Kursnamn"
-                                    </xs:documentation>
-                                </xs:annotation>
-                                <xs:simpleType>
-                                    <xs:restriction base="xs:string">
-                                        <xs:minLength value="1"/>
-                                    </xs:restriction>
-                                </xs:simpleType>
+                            <xs:element name="Kursnamn" minOccurs="1" maxOccurs="2">
+                                <xs:complexType>
+                                    <xs:simpleContent>
+                                        <xs:extension base="xs:string">
+                                            <xs:attribute name="Lang" use="required">
+                                                <xs:simpleType>
+                                                    <xs:restriction base="xs:string">
+                                                        <xs:enumeration value="sv"/>
+                                                        <xs:enumeration value="en"/>
+                                                    </xs:restriction>
+                                                </xs:simpleType>
+                                            </xs:attribute>
+                                        </xs:extension>
+                                    </xs:simpleContent>
+                                </xs:complexType>
                             </xs:element>
-                            <xs:element type="InnehållType" name="Innehåll" maxOccurs="1" minOccurs="0"/>
-                            <xs:element name="Kurstillfälle" minOccurs="0" maxOccurs="unbounded">
+                            <xs:element type="InnehallType" name="Innehall" maxOccurs="1" minOccurs="0"/>
+                            <xs:element name="Kurstillfalle" minOccurs="0" maxOccurs="unbounded">
                                 <xs:complexType>
                                     <xs:sequence>
-                                        <xs:element name="Kurstillfälleskod" type="xs:string" minOccurs="1"
+                                        <xs:element name="Kurstillfalleskod" type="xs:string" minOccurs="1"
                                                     maxOccurs="1"/>
-                                        <xs:element name="Omgång" type="xs:string" minOccurs="0" maxOccurs="1"/>
-                                        <xs:element type="InnehållType" name="Innehåll" maxOccurs="unbounded"
+                                        <xs:element name="Omgang" type="xs:string" minOccurs="0" maxOccurs="1"/>
+                                        <xs:element type="InnehallType" name="Innehall" maxOccurs="unbounded"
                                                     minOccurs="0"/>
                                     </xs:sequence>
                                 </xs:complexType>

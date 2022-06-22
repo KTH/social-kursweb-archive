@@ -58,11 +58,14 @@ fn writecourse<W: Write>(
     metaxml.write(XmlEvent::start_element("Kurskod"))?;
     metaxml.write(XmlEvent::characters(code))?;
     metaxml.write(XmlEvent::end_element())?;
+    metaxml.write(XmlEvent::start_element("Kursnamn").attr("Lang", "sv"))?;
+    metaxml.write(XmlEvent::characters("TODO"))?;
+    metaxml.write(XmlEvent::end_element())?;
 
     let mut data: Vec<Node> =
         serde_json::from_reader(File::open(srcbase.join("00-pages.json"))?)?;
 
-    metaxml.write(XmlEvent::start_element("Innehåll"))?;
+    metaxml.write(XmlEvent::start_element("Innehall"))?;
     for node in &mut data {
         node.handle(metaxml, &srcbase, &dest, &base.join(code))
             .with_context(|| format!("Handling node {:?}", &node.slug))?;
@@ -99,7 +102,7 @@ impl Node {
                 XmlEvent::start_element("Nod")
                     .attr("Lank", ps(&dir.join(&filename))?)
                     // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
-                    .attr("Ändrad", &self.last_modified.time),
+                    .attr("Andrad", &self.last_modified.time),
             )?;
             for link in &self.links {
                 match link.category.as_str() {
@@ -115,7 +118,11 @@ impl Node {
                         metaxml.write(
                             XmlEvent::start_element("Bilaga")
                                 .attr("Lank", ps(&dir.join(&destname))?)
-                                .attr("Filnamn", link.filename()),
+                                .attr(
+                                    "Filnamn",
+                                    // TODO? link.filename()
+                                    &destname,
+                                ),
                             // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
                             // .attr("Ändrad", &node.last_modified.time)
                         )?;
@@ -187,6 +194,8 @@ impl Link {
             }
         }
     }
+    /// The original name of the file, if that is of interest.
+    #[allow(unused)]
     fn filename(&self) -> &str {
         self.url
             .rsplit_once('/')
