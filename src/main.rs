@@ -1,11 +1,13 @@
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{ensure, Context, Result};
 use encoding::all::ISO_8859_1;
 use encoding::{DecoderTrap, Encoding};
 use lazy_regex::regex_is_match;
 use serde::Deserialize;
 use slug::slugify;
+use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::Write;
+use std::os::unix::prelude::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::from_utf8;
@@ -28,15 +30,20 @@ fn main() -> Result<()> {
     metaxml.write(XmlEvent::start_element("SystemNamn"))?;
     metaxml.write(XmlEvent::characters("Social"))?;
     metaxml.write(XmlEvent::end_element())?;
-    for code in &["SF1624", "SG2212", "SK3893"] {
-        writecourse(
-            &mut metaxml,
-            "../courses-1/data/".as_ref(),
-            &path,
-            "s".as_ref(),
-            code,
-        )
-        .with_context(|| format!("Handling {code}"))?;
+    let srcpath: &Path = "../courses-1/data/".as_ref();
+    for ltr in srcpath.read_dir()? {
+        let ltr = ltr?.file_name();
+        for code in srcpath.join(&ltr).read_dir()? {
+            let code = code?.file_name();
+            writecourse(
+                &mut metaxml,
+                srcpath,
+                &path,
+                ltr.as_ref(),
+                code.to_str().unwrap(),
+            )
+            .with_context(|| format!("Handling {code:?}"))?;
+        }
     }
     metaxml.write(XmlEvent::end_element())?;
     Ok(())
@@ -62,8 +69,12 @@ fn writecourse<W: Write>(
     metaxml.write(XmlEvent::characters("TODO"))?;
     metaxml.write(XmlEvent::end_element())?;
 
-    let mut data: Vec<Node> =
-        serde_json::from_reader(File::open(srcbase.join("00-pages.json"))?)?;
+    let data_path = srcbase.join("00-pages.json");
+    let mut data: Vec<Node> = serde_json::from_reader(
+        File::open(&data_path)
+            .with_context(|| format!("Failed to open {data_path:?}"))?,
+    )
+    .with_context(|| format!("Failed to parse {data_path:?}"))?;
 
     metaxml.write(XmlEvent::start_element("Innehall"))?;
     for node in &mut data {
@@ -105,14 +116,39 @@ impl Node {
                     .attr("Andrad", &self.last_modified.time),
             )?;
             for link in &self.links {
-                match link.category.as_str() {
-                    "file" => {
-                        let data = fs::read(srcbase.join(&link.url))
-                            .with_context(|| {
-                                format!("Failed to read {:?}", &link.url)
-                            })?;
+                let data = fs::read(srcbase.join(&link.url))
+                    .or_else(|_| {
+                        fs::read(srcbase.join(&link.url.replace('+', "%20")))
+                    })
+                    .or_else(|_| {
+                        fs::read(
+                            srcbase.join(OsStr::from_bytes(
+                                urlencoding::decode_binary(link.url.as_ref())
+                                    .as_ref(),
+                            )),
+                        )
+                    })
+                    .or_else(|_| {
+                        fs::read(srcbase.join({
+                            link.url
+                                .rsplit_once('/')
+                                .map(|(dir, file)| {
+                                    format!(
+                                        "{}/{}",
+                                        dir,
+                                        urlencoding::encode(file).as_ref()
+                                    )
+                                })
+                                .unwrap()
+                        }))
+                    });
+                match data {
+                    Err(e) => {
+                        eprintln!("In {dir:?}, skipping Bilaga {link:?}: {e}")
+                    }
+                    Ok(data) => {
                         let destname = link.destname();
-                        write(&dest.join(&destname), data)?;
+                        write(&dest.join(&destname), &data)?;
                         let mut ndoc = doc.replace(&link.url, &destname);
                         std::mem::swap(&mut doc, &mut ndoc);
                         metaxml.write(
@@ -122,15 +158,13 @@ impl Node {
                                     "Filnamn",
                                     // TODO? link.filename()
                                     &destname,
-                                ),
+                                )
+                                .attr("Storlek", &data.len().to_string()),
                             // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
                             // .attr("Ändrad", &node.last_modified.time)
                         )?;
                         metaxml.write(XmlEvent::end_element())?;
                     }
-                    "ext" => (), // external link, ignore
-                    "incourse" => (),
-                    category => bail!("Unknown category {category:?}"),
                 }
             }
             metaxml.write(XmlEvent::end_element())?;
@@ -157,7 +191,7 @@ struct Modification {
     time: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Link {
     url: String,
     category: String,
