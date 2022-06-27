@@ -1,4 +1,4 @@
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, Context, Result};
 use encoding::all::ISO_8859_1;
 use encoding::{DecoderTrap, Encoding};
 use lazy_regex::regex_is_match;
@@ -105,43 +105,23 @@ impl Node {
         let mut doc = fs::read_to_string(srcbase.join(&filename))?;
 
         self.links.retain(|link| link.is_file());
+        let files = self
+            .links
+            .iter()
+            .filter_map(|link| {
+                link.get_file(srcbase).map_err(|e| eprintln!("{e:?}")).ok()
+            })
+            .collect::<Vec<_>>();
 
-        if is_relevant(&doc)
-            || try_any(&self.links, |link: &Link| link.is_relevant(srcbase))?
-        {
+        if is_relevant(&doc) || try_any(&files, FileNode::is_relevant)? {
             metaxml.write(
                 XmlEvent::start_element("Nod")
                     .attr("Lank", ps(&dir.join(&filename))?)
                     // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
                     .attr("Andrad", &self.last_modified.time),
             )?;
-            for link in &self.links {
-                let data = fs::read(srcbase.join(&link.url))
-                    .or_else(|_| {
-                        fs::read(srcbase.join(&link.url.replace('+', "%20")))
-                    })
-                    .or_else(|_| {
-                        fs::read(
-                            srcbase.join(OsStr::from_bytes(
-                                urlencoding::decode_binary(link.url.as_ref())
-                                    .as_ref(),
-                            )),
-                        )
-                    })
-                    .or_else(|_| {
-                        fs::read(srcbase.join({
-                            link.url
-                                .rsplit_once('/')
-                                .map(|(dir, file)| {
-                                    format!(
-                                        "{}/{}",
-                                        dir,
-                                        urlencoding::encode(file).as_ref()
-                                    )
-                                })
-                                .unwrap()
-                        }))
-                    });
+            for link in &files {
+                let data = fs::read(&link.path);
                 match data {
                     Err(e) => {
                         eprintln!("In {dir:?}, skipping Bilaga {link:?}: {e}")
@@ -149,7 +129,7 @@ impl Node {
                     Ok(data) => {
                         let destname = link.destname();
                         write(&dest.join(&destname), &data)?;
-                        let mut ndoc = doc.replace(&link.url, &destname);
+                        let mut ndoc = doc.replace(&link.srcname, &destname);
                         std::mem::swap(&mut doc, &mut ndoc);
                         metaxml.write(
                             XmlEvent::start_element("Bilaga")
@@ -174,9 +154,9 @@ impl Node {
     }
 }
 
-fn try_any<Cond>(links: &[Link], cond: Cond) -> Result<bool>
+fn try_any<T, Cond>(links: &[T], cond: Cond) -> Result<bool>
 where
-    Cond: Fn(&Link) -> Result<bool>,
+    Cond: Fn(&T) -> Result<bool>,
 {
     for item in links {
         if cond(item)? {
@@ -207,27 +187,36 @@ impl Link {
         }
     }
 
-    fn is_relevant(&self, base: &Path) -> Result<bool> {
-        let path = base.join(&self.url);
-        match path.extension().map(|s| s.to_str().unwrap()) {
-            Some("jpg") => Ok(false),
-            Some("png") => Ok(false),
-            Some("pdf") => {
-                let result = Command::new("pdftotext")
-                    .arg(path)
-                    .arg("-")
-                    .output()
-                    .context("extract pdf text")?;
-                ensure!(result.status.success());
-                Ok(is_relevant(from_utf8(&result.stdout)?))
-            }
-            _ => {
-                let data = fs::read_to_string(&path)
-                    .with_context(|| format!("Reading {path:?}"))?;
-                Ok(is_relevant(&data))
-            }
+    fn get_file(&self, srcbase: &Path) -> Result<FileNode> {
+        let path = srcbase.join(&self.url);
+        let srcname = self.url.clone();
+        if path.exists() {
+            return Ok(FileNode { path, srcname });
         }
+        let path = srcbase.join(&self.url.replace('+', "%20"));
+        if path.exists() {
+            return Ok(FileNode { path, srcname });
+        }
+        let path = srcbase.join(OsStr::from_bytes(
+            urlencoding::decode_binary(self.url.as_ref()).as_ref(),
+        ));
+        if path.exists() {
+            return Ok(FileNode { path, srcname });
+        }
+        let path = srcbase.join({
+            self.url
+                .rsplit_once('/')
+                .map(|(dir, file)| {
+                    format!("{}/{}", dir, urlencoding::encode(file).as_ref())
+                })
+                .unwrap()
+        });
+        if path.exists() {
+            return Ok(FileNode { path, srcname });
+        }
+        bail!("Failed to find path {srcname:?} in {srcbase:?}.");
     }
+
     /// The original name of the file, if that is of interest.
     #[allow(unused)]
     fn filename(&self) -> &str {
@@ -236,9 +225,80 @@ impl Link {
             .map(|(_, name)| name)
             .unwrap_or(&self.url)
     }
+}
+
+fn is_relevant(doc: &str) -> bool {
+    regex_is_match!(
+        r"\b((om)?tenta|assign?e?ment|lab|[öo]vning|l[äa]xa|inl[äa]mning|munta|quiz|examination|uppgift|seminar|facit|(kontroll|sals?)skrivning|formelsamling)\b"i,
+        doc
+    )
+}
+
+fn ps(path: &Path) -> Result<&str> {
+    path.to_str().context("non-utf8 path")
+}
+
+fn write<D: AsRef<[u8]>>(path: &Path, data: D) -> Result<()> {
+    fs::write(path, data).with_context(|| format!("Failed to write {path:?}"))
+}
+
+#[derive(Debug)]
+struct FileNode {
+    path: PathBuf,
+    srcname: String,
+}
+
+impl FileNode {
+    fn is_relevant(&self) -> Result<bool> {
+        let ext = self
+            .path
+            .extension()
+            .map(|s| s.to_ascii_lowercase().to_string_lossy().into_owned());
+        match ext.as_deref() {
+            Some("doc" | "docx") => Ok(false), // word. Maybe extract data here?
+            Some("dxf") => Ok(false), // autocad? Maybe extract data here?
+            Some("idml") => Ok(false), // indesign. Maybe extract data here?
+            Some("indd") => Ok(false), // indesign. Maybe extract data here?
+            Some("jpg" | "jpeg" | "png" | "tif" | "tiff") => Ok(false), // image
+            Some("mp3" | "wav") => Ok(false), // sound
+            Some("odt") => Ok(false), // open document. Maybe extract data here?
+            Some("ppt" | "pptx") => Ok(false), // Maybe extract data here?
+            Some("webarchive") => Ok(false), // apple junk. Maybe extract data here?
+            Some("xls" | "xlsx") => Ok(false), // Maybe extract data here?
+            Some("zip") => Ok(false), // Archive. Maybe extract data here?
+            Some("pdf" | "ai") => {
+                let result = Command::new("pdftotext")
+                    .arg(&self.path)
+                    .arg("-")
+                    .output()
+                    .context("extract pdf text")?;
+                if !result.status.success() {
+                    let err = result.stderr;
+                    if err == b"Syntax Error: Document stream is empty\n"
+                        || err == b"Command Line Error: Incorrect password\n"
+                    {
+                        return Ok(false); // empty or encrypted files are not relevant
+                    } else {
+                        eprintln!(
+                            "pdftotext failed for {:?}: {:?}",
+                            self.path,
+                            from_utf8(&err)
+                        );
+                        return Ok(false);
+                    }
+                }
+                Ok(is_relevant(from_utf8(&result.stdout)?))
+            }
+            _ => {
+                let data = fs::read(&self.path)
+                    .with_context(|| format!("Reading {:?}", self.path))?;
+                Ok(is_relevant(&String::from_utf8_lossy(&data)))
+            }
+        }
+    }
 
     fn destname(&self) -> String {
-        let data = self.url.trim_start_matches("01-files/");
+        let data = self.srcname.trim_start_matches("01-files/");
         let data = if data.contains('%') {
             String::from_utf8(
                 urlencoding::decode_binary(data.as_ref()).into_owned(),
@@ -257,19 +317,4 @@ impl Link {
             slugify(data)
         }
     }
-}
-
-fn is_relevant(doc: &str) -> bool {
-    regex_is_match!(
-        r"\b((om)?tenta|assign?e?ment|lab|[öo]vning|l[äa]xa|inl[äa]mning|munta|quiz|examination|uppgift|seminar|facit|(kontroll|sals?)skrivning|formelsamling)\b"i,
-        doc
-    )
-}
-
-fn ps(path: &Path) -> Result<&str> {
-    path.to_str().context("non-utf8 path")
-}
-
-fn write<D: AsRef<[u8]>>(path: &Path, data: D) -> Result<()> {
-    fs::write(path, data).with_context(|| format!("Failed to write {path:?}"))
 }
