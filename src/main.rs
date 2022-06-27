@@ -194,16 +194,16 @@ struct Modification {
 #[derive(Debug, Deserialize)]
 struct Link {
     url: String,
-    category: String,
+    category: Option<String>,
 }
 
 impl Link {
     fn is_file(&self) -> bool {
-        match self.category.as_str() {
-            "file" => true,
-            "ext" => false,
-            "incourse" => false,
-            category => panic!("Unknown category {category:?}"),
+        match self.category.as_deref() {
+            Some("file") | None => true,
+            Some("ext") => false,
+            Some("incourse") => false,
+            Some(category) => panic!("Unknown category {category:?}"),
         }
     }
 
@@ -261,7 +261,7 @@ impl Link {
 
 fn is_relevant(doc: &str) -> bool {
     regex_is_match!(
-        r"\b(tenta|assign?e?ment|lab|[öo]vning)?|l[äa]xa|inl[äa]mning|munta|quiz|examination|uppgift|seminar|facit|(kontroll|sals?)skrivning|formelsamling"i,
+        r"\b((om)?tenta|assign?e?ment|lab|[öo]vning|l[äa]xa|inl[äa]mning|munta|quiz|examination|uppgift|seminar|facit|(kontroll|sals?)skrivning|formelsamling)\b"i,
         doc
     )
 }
