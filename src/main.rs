@@ -57,9 +57,29 @@ fn writecourse<W: Write>(
     code: &str,
 ) -> Result<()> {
     let srcbase = src.join(base).join(code);
-    let dest = dest.join(base).join(code);
+    let data_path = srcbase.join("00-pages.json");
+    let data: Vec<Node> = serde_json::from_reader(
+        File::open(&data_path)
+            .with_context(|| format!("Failed to open {data_path:?}"))?,
+    )
+    .with_context(|| format!("Failed to parse {data_path:?}"))?;
 
-    // TODO: Don't create dir or write element if nothing in the course!
+    let mut data = data
+        .into_iter()
+        .filter_map(|data| match data.into_node2(&srcbase) {
+            Ok(data) => match data.is_relevant() {
+                Ok(true) => Some(Ok(data)),
+                Ok(false) => None,
+                Err(err) => Some(Err(err)),
+            },
+            Err(err) => Some(Err(err)),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if data.is_empty() {
+        return Ok(()); // Nothing to arhive here!
+    }
+
+    let dest = dest.join(base).join(code);
     fs::create_dir_all(&dest)?;
     metaxml.write(XmlEvent::start_element("Kurs"))?;
     metaxml.write(XmlEvent::start_element("Kurskod"))?;
@@ -69,16 +89,9 @@ fn writecourse<W: Write>(
     metaxml.write(XmlEvent::characters("TODO"))?;
     metaxml.write(XmlEvent::end_element())?;
 
-    let data_path = srcbase.join("00-pages.json");
-    let mut data: Vec<Node> = serde_json::from_reader(
-        File::open(&data_path)
-            .with_context(|| format!("Failed to open {data_path:?}"))?,
-    )
-    .with_context(|| format!("Failed to parse {data_path:?}"))?;
-
     metaxml.write(XmlEvent::start_element("Innehall"))?;
     for node in &mut data {
-        node.handle(metaxml, &srcbase, &dest, &base.join(code))
+        node.handle(metaxml, &dest, &base.join(code))
             .with_context(|| format!("Handling node {:?}", &node.slug))?;
     }
     metaxml.write(XmlEvent::end_element())?;
@@ -94,62 +107,79 @@ struct Node {
 }
 
 impl Node {
-    fn handle<W: Write>(
-        &mut self,
-        metaxml: &mut EventWriter<W>,
-        srcbase: &Path,
-        dest: &Path,
-        dir: &Path,
-    ) -> Result<()> {
-        let filename = format!("{}.html", self.slug);
-        let mut doc = fs::read_to_string(srcbase.join(&filename))?;
-
-        self.links.retain(|link| link.is_file());
+    fn into_node2(self, srcbase: &Path) -> Result<Node2> {
         let files = self
             .links
             .iter()
+            .filter(|link| link.is_file())
             .filter_map(|link| {
                 link.get_file(srcbase).map_err(|e| eprintln!("{e:?}")).ok()
             })
             .collect::<Vec<_>>();
+        let filename = format!("{}.html", self.slug);
+        Ok(Node2 {
+            slug: self.slug,
+            doc: fs::read_to_string(srcbase.join(&filename))?,
+            last_modified: self.last_modified,
+            files,
+        })
+    }
+}
 
-        if is_relevant(&doc) || try_any(&files, FileNode::is_relevant)? {
-            metaxml.write(
-                XmlEvent::start_element("Nod")
-                    .attr("Lank", ps(&dir.join(&filename))?)
-                    // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
-                    .attr("Andrad", &self.last_modified.time),
-            )?;
-            for link in &files {
-                let data = fs::read(&link.path);
-                match data {
-                    Err(e) => {
-                        eprintln!("In {dir:?}, skipping Bilaga {link:?}: {e}")
-                    }
-                    Ok(data) => {
-                        let destname = link.destname();
-                        write(&dest.join(&destname), &data)?;
-                        let mut ndoc = doc.replace(&link.srcname, &destname);
-                        std::mem::swap(&mut doc, &mut ndoc);
-                        metaxml.write(
-                            XmlEvent::start_element("Bilaga")
-                                .attr("Lank", ps(&dir.join(&destname))?)
-                                .attr(
-                                    "Filnamn",
-                                    // TODO? link.filename()
-                                    &destname,
-                                )
-                                .attr("Storlek", &data.len().to_string()),
-                            // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
-                            // .attr("Ändrad", &node.last_modified.time)
-                        )?;
-                        metaxml.write(XmlEvent::end_element())?;
-                    }
+struct Node2 {
+    slug: String,
+    doc: String,
+    last_modified: Modification,
+    files: Vec<FileNode>,
+}
+
+impl Node2 {
+    fn is_relevant(&self) -> Result<bool> {
+        Ok(is_relevant(&self.doc)
+            || try_any(&self.files, FileNode::is_relevant)?)
+    }
+    fn handle<W: Write>(
+        &mut self,
+        metaxml: &mut EventWriter<W>,
+        dest: &Path,
+        dir: &Path,
+    ) -> Result<()> {
+        let filename = format!("{}.html", self.slug);
+        metaxml.write(
+            XmlEvent::start_element("Nod")
+                .attr("Lank", ps(&dir.join(&filename))?)
+                // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
+                .attr("Andrad", &self.last_modified.time),
+        )?;
+        for link in &self.files {
+            let data = fs::read(&link.path);
+            match data {
+                Err(e) => {
+                    eprintln!("In {dir:?}, skipping Bilaga {link:?}: {e}")
+                }
+                Ok(data) => {
+                    let destname = link.destname();
+                    write(&dest.join(&destname), &data)?;
+                    let mut ndoc = self.doc.replace(&link.srcname, &destname);
+                    std::mem::swap(&mut self.doc, &mut ndoc);
+                    metaxml.write(
+                        XmlEvent::start_element("Bilaga")
+                            .attr("Lank", ps(&dir.join(&destname))?)
+                            .attr(
+                                "Filnamn",
+                                // TODO? link.filename()
+                                &destname,
+                            )
+                            .attr("Storlek", &data.len().to_string()),
+                        // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
+                        // .attr("Ändrad", &node.last_modified.time)
+                    )?;
+                    metaxml.write(XmlEvent::end_element())?;
                 }
             }
-            metaxml.write(XmlEvent::end_element())?;
-            write(&dest.join(&filename), doc)?;
         }
+        metaxml.write(XmlEvent::end_element())?;
+        write(&dest.join(&filename), &self.doc)?;
         Ok(())
     }
 }
