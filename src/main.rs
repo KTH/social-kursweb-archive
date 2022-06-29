@@ -19,8 +19,8 @@ fn main() -> Result<()> {
     let path = PathBuf::from("../out");
     fs::create_dir_all(&path)?;
     let mut metaxml = EventWriter::new_with_config(
-        File::create(path.join("leverans.xml"))
-            .context("Failed to create leverans.xml")?,
+        File::create(path.join("social.xml"))
+            .context("Failed to create social.xml")?,
         EmitterConfig::new().perform_indent(true),
     );
     metaxml.write(
