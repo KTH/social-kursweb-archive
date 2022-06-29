@@ -350,9 +350,10 @@ impl FileNode {
             Some("dxf") => Ok(false), // autocad? Maybe extract data here?
             Some("idml") => Ok(false), // indesign. Maybe extract data here?
             Some("indd") => Ok(false), // indesign. Maybe extract data here?
-            Some("jpg" | "jpeg" | "png" | "tif" | "tiff") => Ok(false), // image
+            Some("jpg" | "jpeg" | "png" | "tif" | "tiff" | "webm") => Ok(false),
             Some("mp3" | "wav") => Ok(false), // sound
             Some("odt") => Ok(false), // open document. Maybe extract data here?
+            Some("pcap") => Ok(false), // network dump
             Some("ppt" | "pptx") => Ok(false), // Maybe extract data here?
             Some("webarchive") => Ok(false), // apple junk. Maybe extract data here?
             Some("xls" | "xlsx") => Ok(false), // Maybe extract data here?
