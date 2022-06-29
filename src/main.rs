@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use encoding::all::ISO_8859_1;
 use encoding::{DecoderTrap, Encoding};
 use lazy_regex::regex_is_match;
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     metaxml.write(XmlEvent::start_element("SystemNamn"))?;
     metaxml.write(XmlEvent::characters("Social"))?;
     metaxml.write(XmlEvent::end_element())?;
-    let srcpath: &Path = "../courses-1/data/".as_ref();
+    let srcpath: &Path = "data".as_ref();
     for ltr in srcpath.read_dir()? {
         let ltr = ltr?.file_name();
         for code in srcpath.join(&ltr).read_dir()? {
@@ -102,6 +102,7 @@ fn writecourse<W: Write>(
 #[derive(Deserialize)]
 struct Node {
     slug: String,
+    created_time: String,
     last_modified: Modification,
     links: Vec<Link>,
 }
@@ -120,6 +121,7 @@ impl Node {
         Ok(Node2 {
             slug: self.slug,
             doc: fs::read_to_string(srcbase.join(&filename))?,
+            created_time: self.created_time,
             last_modified: self.last_modified,
             files,
         })
@@ -129,6 +131,7 @@ impl Node {
 struct Node2 {
     slug: String,
     doc: String,
+    created_time: String,
     last_modified: Modification,
     files: Vec<FileNode>,
 }
@@ -148,7 +151,7 @@ impl Node2 {
         metaxml.write(
             XmlEvent::start_element("Nod")
                 .attr("Lank", ps(&dir.join(&filename))?)
-                // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
+                .attr("Skapad", &self.created_time)
                 .attr("Andrad", &self.last_modified.time),
         )?;
         for link in &self.files {
@@ -162,18 +165,23 @@ impl Node2 {
                     write(&dest.join(&destname), &data)?;
                     let mut ndoc = self.doc.replace(&link.srcname, &destname);
                     std::mem::swap(&mut self.doc, &mut ndoc);
-                    metaxml.write(
-                        XmlEvent::start_element("Bilaga")
-                            .attr("Lank", ps(&dir.join(&destname))?)
-                            .attr(
-                                "Filnamn",
-                                // TODO? link.filename()
-                                &destname,
-                            )
-                            .attr("Storlek", &data.len().to_string()),
-                        // .attr("Skapad", todo!()) (första datum finns inte i min json, måste i så fall dumpas om från källan.
-                        // .attr("Ändrad", &node.last_modified.time)
-                    )?;
+                    let link_attr = dir.join(&destname);
+                    let len_attr = data.len().to_string();
+                    let event = XmlEvent::start_element("Bilaga")
+                        .attr("Lank", ps(&link_attr)?)
+                        .attr(
+                            "Filnamn",
+                            // TODO? link.filename()
+                            &destname,
+                        )
+                        .attr("Storlek", &len_attr);
+                    let event =
+                        if let Some(created) = link.created_time.as_ref() {
+                            event.attr("Uppladdningsdatum", created)
+                        } else {
+                            event
+                        };
+                    metaxml.write(event)?;
                     metaxml.write(XmlEvent::end_element())?;
                 }
             }
@@ -204,6 +212,7 @@ struct Modification {
 #[derive(Debug, Deserialize)]
 struct Link {
     url: String,
+    created_time: Option<String>,
     category: Option<String>,
 }
 
@@ -218,33 +227,43 @@ impl Link {
     }
 
     fn get_file(&self, srcbase: &Path) -> Result<FileNode> {
-        let path = srcbase.join(&self.url);
-        let srcname = self.url.clone();
-        if path.exists() {
-            return Ok(FileNode { path, srcname });
-        }
-        let path = srcbase.join(&self.url.replace('+', "%20"));
-        if path.exists() {
-            return Ok(FileNode { path, srcname });
-        }
-        let path = srcbase.join(OsStr::from_bytes(
-            urlencoding::decode_binary(self.url.as_ref()).as_ref(),
-        ));
-        if path.exists() {
-            return Ok(FileNode { path, srcname });
-        }
-        let path = srcbase.join({
-            self.url
-                .rsplit_once('/')
-                .map(|(dir, file)| {
-                    format!("{}/{}", dir, urlencoding::encode(file).as_ref())
+        let url = self.url.replace("/social/upload/", "01-files/");
+        self.check_path_file(srcbase.join(&url))
+            .or_else(|| {
+                self.check_path_file(srcbase.join(&url.replace('+', "%20")))
+            })
+            .or_else(|| {
+                self.check_path_file(srcbase.join(&url.replace("%2B", "%20")))
+            })
+            .or_else(|| {
+                self.check_path_file(srcbase.join(OsStr::from_bytes(
+                    urlencoding::decode_binary(url.as_ref()).as_ref(),
+                )))
+            })
+            .or_else(|| {
+                url.rsplit_once('/').and_then(|(dir, file)| {
+                    self.check_path_file(
+                        srcbase
+                            .join(dir)
+                            .join(urlencoding::encode(file).as_ref()),
+                    )
                 })
-                .unwrap()
-        });
+            })
+            .ok_or_else(|| {
+                anyhow!("Failed to find path {url:?} in {srcbase:?}.")
+            })
+    }
+
+    fn check_path_file(&self, path: PathBuf) -> Option<FileNode> {
         if path.exists() {
-            return Ok(FileNode { path, srcname });
+            Some(FileNode {
+                path,
+                created_time: self.created_time.clone(),
+                srcname: self.url.clone(),
+            })
+        } else {
+            None
         }
-        bail!("Failed to find path {srcname:?} in {srcbase:?}.");
     }
 
     /// The original name of the file, if that is of interest.
@@ -275,6 +294,7 @@ fn write<D: AsRef<[u8]>>(path: &Path, data: D) -> Result<()> {
 #[derive(Debug)]
 struct FileNode {
     path: PathBuf,
+    created_time: Option<String>,
     srcname: String,
 }
 
