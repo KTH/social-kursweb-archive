@@ -1,7 +1,8 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use encoding::all::ISO_8859_1;
 use encoding::{DecoderTrap, Encoding};
 use lazy_regex::regex_is_match;
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use slug::slugify;
 use std::collections::BTreeMap;
@@ -58,12 +59,9 @@ fn writecourse<W: Write>(
     code: &str,
 ) -> Result<()> {
     let srcbase = src.join(base).join(code);
-    let data_path = srcbase.join("00-pages.json");
-    let data: Vec<Node> = serde_json::from_reader(
-        File::open(&data_path)
-            .with_context(|| format!("Failed to open {data_path:?}"))?,
-    )
-    .with_context(|| format!("Failed to parse {data_path:?}"))?;
+    let data = read_json::<Vec<Node>>(&srcbase.join("00-pages.json"))?;
+    let info = read_json::<Info>(&srcbase.join("00-info.json"))?;
+    ensure!(code == &info.code);
 
     let mut nodes = Vec::new();
     let mut groups: BTreeMap<String, Vec<_>> = BTreeMap::new();
@@ -77,6 +75,9 @@ fn writecourse<W: Write>(
             }
         }
     }
+    if nodes.is_empty() && groups.is_empty() {
+        return Ok(()); // Nothing to arhive here!
+    }
 
     let dest = dest.join(base).join(code);
     fs::create_dir_all(&dest)?;
@@ -84,31 +85,55 @@ fn writecourse<W: Write>(
     metaxml.write(XmlEvent::start_element("Kurskod"))?;
     metaxml.write(XmlEvent::characters(code))?;
     metaxml.write(XmlEvent::end_element())?;
-    metaxml.write(XmlEvent::start_element("Kursnamn").attr("Lang", "sv"))?;
-    metaxml.write(XmlEvent::characters("TODO"))?;
-    metaxml.write(XmlEvent::end_element())?;
-
-    metaxml.write(XmlEvent::start_element("Innehall"))?;
-    for mut node in nodes {
-        node.handle(metaxml, &dest, &base.join(code))
-            .with_context(|| format!("Handling node {:?}", &node.slug))?;
+    for (lang, name) in &info.name {
+        metaxml
+            .write(XmlEvent::start_element("Kursnamn").attr("Lang", lang))?;
+        metaxml.write(XmlEvent::characters(name))?;
+        metaxml.write(XmlEvent::end_element())?;
     }
-    metaxml.write(XmlEvent::end_element())?;
+
+    writecontent(metaxml, nodes, &dest, &base.join(code))?;
     for (group, nodes) in groups {
         metaxml.write(XmlEvent::start_element("Kurstillfalle"))?;
         metaxml.write(XmlEvent::start_element("Kurstillfalleskod"))?;
         metaxml.write(XmlEvent::characters(&group))?;
         metaxml.write(XmlEvent::end_element())?;
-        metaxml.write(XmlEvent::start_element("Innehall"))?;
-        for mut node in nodes {
-            node.handle(metaxml, &dest, &base.join(code))
-                .with_context(|| format!("Handling node {:?}", &node.slug))?;
-        }
-        metaxml.write(XmlEvent::end_element())?;
+        writecontent(metaxml, nodes, &dest, &base.join(code))?;
         metaxml.write(XmlEvent::end_element())?;
     }
     metaxml.write(XmlEvent::end_element())?;
     Ok(())
+}
+
+fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
+    serde_json::from_reader(
+        File::open(&path)
+            .with_context(|| format!("Failed to open {path:?}"))?,
+    )
+    .with_context(|| format!("Failed to parse {path:?}"))
+}
+
+fn writecontent<W: Write>(
+    metaxml: &mut EventWriter<W>,
+    nodes: Vec<Node2>,
+    dest: &Path,
+    base: &Path,
+) -> Result<()> {
+    if !nodes.is_empty() {
+        metaxml.write(XmlEvent::start_element("Innehall"))?;
+        for mut node in nodes {
+            node.handle(metaxml, &dest, &base)
+                .with_context(|| format!("Handling node {:?}", &node.slug))?;
+        }
+        metaxml.write(XmlEvent::end_element())?;
+    }
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct Info {
+    code: String,
+    name: BTreeMap<String, String>,
 }
 
 #[derive(Deserialize)]
