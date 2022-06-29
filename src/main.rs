@@ -4,6 +4,7 @@ use encoding::{DecoderTrap, Encoding};
 use lazy_regex::regex_is_match;
 use serde::Deserialize;
 use slug::slugify;
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::Write;
@@ -64,19 +65,17 @@ fn writecourse<W: Write>(
     )
     .with_context(|| format!("Failed to parse {data_path:?}"))?;
 
-    let mut data = data
-        .into_iter()
-        .filter_map(|data| match data.into_node2(&srcbase) {
-            Ok(data) => match data.is_relevant() {
-                Ok(true) => Some(Ok(data)),
-                Ok(false) => None,
-                Err(err) => Some(Err(err)),
-            },
-            Err(err) => Some(Err(err)),
-        })
-        .collect::<Result<Vec<_>>>()?;
-    if data.is_empty() {
-        return Ok(()); // Nothing to arhive here!
+    let mut nodes = Vec::new();
+    let mut groups: BTreeMap<String, Vec<_>> = BTreeMap::new();
+    for item in data {
+        let (group, data) = item.into_node2(&srcbase)?;
+        if data.is_relevant()? {
+            if let Some(group) = group {
+                groups.entry(group).or_default().push(data);
+            } else {
+                nodes.push(data);
+            }
+        }
     }
 
     let dest = dest.join(base).join(code);
@@ -90,11 +89,24 @@ fn writecourse<W: Write>(
     metaxml.write(XmlEvent::end_element())?;
 
     metaxml.write(XmlEvent::start_element("Innehall"))?;
-    for node in &mut data {
+    for mut node in nodes {
         node.handle(metaxml, &dest, &base.join(code))
             .with_context(|| format!("Handling node {:?}", &node.slug))?;
     }
     metaxml.write(XmlEvent::end_element())?;
+    for (group, nodes) in groups {
+        metaxml.write(XmlEvent::start_element("Kurstillfalle"))?;
+        metaxml.write(XmlEvent::start_element("Kurstillfalleskod"))?;
+        metaxml.write(XmlEvent::characters(&group))?;
+        metaxml.write(XmlEvent::end_element())?;
+        metaxml.write(XmlEvent::start_element("Innehall"))?;
+        for mut node in nodes {
+            node.handle(metaxml, &dest, &base.join(code))
+                .with_context(|| format!("Handling node {:?}", &node.slug))?;
+        }
+        metaxml.write(XmlEvent::end_element())?;
+        metaxml.write(XmlEvent::end_element())?;
+    }
     metaxml.write(XmlEvent::end_element())?;
     Ok(())
 }
@@ -105,10 +117,11 @@ struct Node {
     created_time: String,
     last_modified: Modification,
     links: Vec<Link>,
+    roundgroup: Option<String>,
 }
 
 impl Node {
-    fn into_node2(self, srcbase: &Path) -> Result<Node2> {
+    fn into_node2(self, srcbase: &Path) -> Result<(Option<String>, Node2)> {
         let files = self
             .links
             .iter()
@@ -118,13 +131,16 @@ impl Node {
             })
             .collect::<Vec<_>>();
         let filename = format!("{}.html", self.slug);
-        Ok(Node2 {
-            slug: self.slug,
-            doc: fs::read_to_string(srcbase.join(&filename))?,
-            created_time: self.created_time,
-            last_modified: self.last_modified,
-            files,
-        })
+        Ok((
+            self.roundgroup,
+            Node2 {
+                slug: self.slug,
+                doc: fs::read_to_string(srcbase.join(&filename))?,
+                created_time: self.created_time,
+                last_modified: self.last_modified,
+                files,
+            },
+        ))
     }
 }
 
